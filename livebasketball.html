@@ -1,0 +1,123 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🏀 Court Status - Live View</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 36px;
+      color: #333;
+    }
+    .court {
+      border: 2px solid #444;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+      background-color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .active {
+      background-color: #d4fcd2;
+      color: green;
+    }
+    .inactive {
+      background-color: #fcd2d2;
+      color: red;
+    }
+    .waitlist {
+      margin-top: 40px;
+    }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      width: 90%;
+    }
+    th, td {
+      border: 1px solid #aaa;
+      padding: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏀 Live Court Status</h1>
+
+  <div id="courtStatus">
+    <div class="court active">
+      <h2>Court 1</h2>
+      <p>Status: <strong>Active</strong></p>
+    </div>
+    <div class="court inactive">
+      <h2>Court 2</h2>
+      <p>Status: <strong>Inactive</strong></p>
+    </div>
+  </div>
+
+  <div class="waitlist">
+    <h2>⏳ Waitlist</h2>
+    <table id="waitlistTable">
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>Players</th>
+          <th>Need More?</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const sheetUrl = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec';
+
+    function fetchWaitlist() {
+      fetch(sheetUrl)
+        .then(response => response.json())
+        .then(data => {
+          const tbody = document.querySelector('#waitlistTable tbody');
+          tbody.innerHTML = '';
+
+          data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${row["Team Name"] || ''}</td>
+              <td>${row["Players"] || ''}</td>
+              <td>${row["Need More?"] || ''}</td>
+              <td>${row["Court Type"] || ''}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        })
+        .catch(err => console.error("Failed to fetch waitlist", err));
+    }
+
+    // Simulated court activity (can replace with real sensor data later)
+    function updateCourtStatus() {
+      // Randomly toggle status for demo purposes
+      const courts = document.querySelectorAll('.court');
+      courts.forEach((court, i) => {
+        const active = Math.random() > 0.5;
+        court.classList.toggle('active', active);
+        court.classList.toggle('inactive', !active);
+        court.querySelector('p strong').innerText = active ? 'Active' : 'Inactive';
+      });
+    }
+
+    fetchWaitlist();
+    updateCourtStatus();
+
+    // Refresh every 10 seconds
+    setInterval(() => {
+      fetchWaitlist();
+      updateCourtStatus(); // remove this line when real sensors used
+    }, 10000);
+  </script>
+</body>
+</html>
