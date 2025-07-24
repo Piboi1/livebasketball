@@ -68,61 +68,46 @@
   const FETCH_URL = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec?mode=read';
   const SESSION_DURATION_MINUTES = 1;
 
-  let currentCourtState = {}; // Holds active playing team per court
-  let currentWaitlists = {};  // Holds waitlist entries per court
+function getRemainingSeconds(timestamp) {
+  const start = new Date(timestamp);
+  const end = new Date(start.getTime() + SESSION_DURATION_MINUTES * 60000);
+  const now = new Date();
+  return Math.max(0, Math.floor((end - now) / 1000));
+}
 
-  function formatTime(seconds) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
+async function fetchCourtData() {
+  try {
+    const res = await fetch(FETCH_URL + "?mode=read");
+    const data = await res.json();
 
-  function getRemainingSeconds(timestamp) {
-    const start = new Date(timestamp);
-    const end = new Date(start.getTime() + SESSION_DURATION_MINUTES * 60000);
-    const now = new Date();
-    return Math.max(0, Math.floor((end - now) / 1000));
-  }
+    // Group by court
+    const courts = {};
+    data.forEach(entry => {
+      if (!entry.court) return;
+      if (!courts[entry.court]) courts[entry.court] = [];
+      courts[entry.court].push(entry);
+    });
 
-  async function fetchCourtData() {
-    try {
-      const res = await fetch(FETCH_URL);
-      const data = await res.json();
+    // Show courts & waitlist
+    for (const [court, teams] of Object.entries(courts)) {
+      teams.sort((a,b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+      let playing = teams[0];
+      let waitlist = teams.slice(1);
 
-      const grouped = {};
-      data.forEach(entry => {
-        if (!entry.court) return;
-        if (!grouped[entry.court]) grouped[entry.court] = [];
-        grouped[entry.court].push(entry);
-      });
+      // Calculate timer from playing Timestamp
+      let remaining = getRemainingSeconds(playing.Timestamp);
 
-      currentCourtState = {};
-      currentWaitlists = {};
-
-      for (const [court, entries] of Object.entries(grouped)) {
-        entries.sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
-
-        let playing = entries[0];
-        let waitlist = entries.slice(1);
-
-        let remaining = getRemainingSeconds(playing.Timestamp);
-
-        // If expired and waitlist exists, rotate
-        if (remaining <= 0 && waitlist.length > 0) {
-          playing = waitlist.shift(); // Promote next team
-          remaining = getRemainingSeconds(playing.Timestamp); // Reset timer
-        }
-
-        currentCourtState[court] = { team: playing, remaining };
-        currentWaitlists[court] = waitlist;
-      }
-
-      renderUI();
-    } catch (err) {
-      console.error('Error fetching:', err);
-      document.getElementById('courtStatus').innerHTML = `<p style="color:red;">Error fetching data</p>`;
+      // If timer expired but waitlist exists, playing will update on next fetch (backend cleans & promotes)
+      // Show playing team and timer
+      // Show waitlist teams separately...
     }
+
+    // Render UI accordingly...
+
+  } catch (e) {
+    console.error("Error fetching data:", e);
   }
+}
 
   function renderUI() {
     const courtDiv = document.getElementById('courtStatus');
