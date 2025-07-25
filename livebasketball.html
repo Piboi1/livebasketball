@@ -55,8 +55,6 @@
       border-radius: 5px;
       color: white;
       background-color: #333;
-      min-width: 60px;
-      text-align: center;
     }
   </style>
 </head>
@@ -68,11 +66,11 @@
   <div id="waitlistSection"></div>
 
 <script>
-  const FETCH_URL = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec';
+  const FETCH_URL = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec?mode=read';
   const SESSION_DURATION_MINUTES = 1;
 
-  let currentCourtState = {};  // court -> {team, remaining}
-  let currentWaitlists = {};   // court -> [teams]
+  let currentCourtState = {};
+  let currentWaitlists = {};
 
   function formatTime(seconds) {
     const m = Math.floor(seconds / 60);
@@ -89,10 +87,10 @@
 
   async function fetchCourtData() {
     try {
-      const res = await fetch(FETCH_URL + "?mode=read");
+      const res = await fetch(FETCH_URL);
       const data = await res.json();
 
-      // Group by court
+      // Group entries by court
       const grouped = {};
       data.forEach(entry => {
         if (!entry.court) return;
@@ -103,14 +101,22 @@
       currentCourtState = {};
       currentWaitlists = {};
 
-      for (const [court, teams] of Object.entries(grouped)) {
-        // Sort by newest timestamp descending
-        teams.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+      for (const [court, entries] of Object.entries(grouped)) {
+        // Sort descending by timestamp (newest first)
+        entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-        let playing = teams[0];
-        let waitlist = teams.slice(1);
+        const activeTeam = entries.find(team => {
+          // The first one that is active (started less than SESSION_DURATION_MINUTES ago)
+          const ageMins = (new Date() - new Date(team.timestamp)) / 60000;
+          return ageMins < SESSION_DURATION_MINUTES;
+        });
 
-        let remaining = getRemainingSeconds(playing.timestamp);
+        let playing = activeTeam || null;
+        // Waitlist is all other teams for that court excluding the active one
+        const waitlist = entries.filter(team => team !== playing);
+
+        // Calculate remaining seconds if playing exists
+        let remaining = playing ? getRemainingSeconds(playing.timestamp) : 0;
 
         currentCourtState[court] = { team: playing, remaining };
         currentWaitlists[court] = waitlist;
@@ -118,9 +124,8 @@
 
       renderUI();
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error fetching:', err);
       document.getElementById('courtStatus').innerHTML = `<p style="color:red;">Error fetching data</p>`;
-      document.getElementById('waitlistSection').innerHTML = '';
     }
   }
 
@@ -131,27 +136,21 @@
     courtDiv.innerHTML = '';
     waitlistDiv.innerHTML = '';
 
-    // Render active courts (skip if expired and no waitlist)
     for (const [court, { team, remaining }] of Object.entries(currentCourtState)) {
-      const waitlist = currentWaitlists[court] || [];
-
-      // If timer expired and no waitlist, skip showing this court
-      if (remaining <= 0 && waitlist.length === 0) continue;
-
       const box = document.createElement('div');
-      box.className = 'court-box ' + (remaining > 0 ? 'active' : 'inactive');
+      box.className = 'court-box ' + (team && remaining > 0 ? 'active' : 'inactive');
       box.innerHTML = `
         <h2>${court.replace(/_/g, ' ')}</h2>
-        <p><strong>Now Playing:</strong> ${team.team_name || "Unnamed Team"}</p>
-        <p><strong>Game Mode:</strong> ${team.game_mode}</p>
-        <p><strong>Team Size:</strong> ${team.team_size}</p>
-        <p><strong>Looking for more players?</strong> ${team.needed}</p>
+        <p><strong>Now Playing:</strong> ${team ? (team.team_name || "Unnamed Team") : "No active team"}</p>
+        <p><strong>Game Mode:</strong> ${team ? team.game_mode : "-"}</p>
+        <p><strong>Team Size:</strong> ${team ? team.team_size : "-"}</p>
+        <p><strong>Looking for more players?</strong> ${team ? team.needed : "-"}</p>
         <div class="timer" id="timer-${court}">${formatTime(remaining)}</div>
       `;
       courtDiv.appendChild(box);
     }
 
-    // Render waitlist
+    // Flatten waitlist and display
     const allWaitlist = Object.entries(currentWaitlists).flatMap(([court, teams]) =>
       teams.map(team => ({
         ...team,
@@ -192,7 +191,7 @@
 
   fetchCourtData();
   setInterval(fetchCourtData, 15000); // Refresh data every 15s
-  setInterval(updateTimers, 1000);     // Smooth timer tick every 1s
+  setInterval(updateTimers, 1000);     // Timer tick every 1s
 </script>
 
 </body>
