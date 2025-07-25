@@ -1,198 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Court Status & Waitlist</title>
+  <meta charset="UTF-8">
+  <title>Basketball Court Status</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
+      background: #f7f7f7;
       padding: 20px;
-      text-align: center;
+      color: #333;
     }
+
     h1 {
-      margin-bottom: 20px;
-    }
-    .court-box {
-      border: 2px solid #333;
-      border-radius: 10px;
-      background: white;
-      padding: 15px;
-      max-width: 500px;
-      margin: 10px auto;
-      position: relative;
-    }
-    .active {
-      border-color: green;
-      background-color: #d4fcd4;
-    }
-    .inactive {
-      border-color: red;
-      background-color: #fcd4d4;
-    }
-    .waitlist-box {
-      border: 2px solid #555;
-      background-color: #fff3cd;
-      border-radius: 10px;
-      max-width: 500px;
-      margin: 30px auto 10px;
-      padding: 15px;
-      text-align: left;
-    }
-    .waitlist-box h2 {
       text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .court-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .court-box {
+      background-color: #e0e0e0;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+      transition: background-color 0.3s ease;
+    }
+
+    .court-box.active {
+      background-color: #d4edda;
+    }
+
+    .court-box.inactive {
+      background-color: #f8d7da;
+    }
+
+    .court-box h2 {
       margin-top: 0;
     }
+
     .timer {
+      font-size: 1.5em;
       font-weight: bold;
-      font-size: 1.1em;
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      padding: 5px 10px;
-      border-radius: 5px;
-      color: white;
+      margin-top: 10px;
       background-color: #333;
+      color: white;
+      text-align: center;
+      padding: 8px;
+      border-radius: 5px;
+    }
+
+    .waitlist-box {
+      margin-top: 40px;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .waitlist-box h2 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    .waitlist-box p {
+      margin: 8px 0;
+      font-size: 15px;
     }
   </style>
 </head>
 <body>
+  <h1>Live Basketball Court Status</h1>
 
-  <h1>Live Court Status</h1>
-  <div id="courtStatus"></div>
+  <div id="courtStatus" class="court-container">
+    <!-- Courts will be rendered here -->
+  </div>
 
-  <div id="waitlistSection"></div>
+  <div id="waitlistSection">
+    <!-- Waitlist will be rendered here -->
+  </div>
 
-<script>
-  const FETCH_URL = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec?mode=read';
-  const SESSION_DURATION_MINUTES = 1;
+  <script>
+    const FETCH_URL = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec?mode=read';
+    const SESSION_DURATION_MINUTES = 1;  // Set the same as in your Apps Script
 
-  let currentCourtState = {};
-  let currentWaitlists = {};
+    let currentCourtState = {};  // { courtName: { team: {}, remaining: seconds } }
+    let currentWaitlists = {};   // { courtName: [ teamObj, ... ] }
 
-  function formatTime(seconds) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
 
-  function getRemainingSeconds(timestamp) {
-    const start = new Date(timestamp);
-    const end = new Date(start.getTime() + SESSION_DURATION_MINUTES * 60000);
-    const now = new Date();
-    return Math.max(0, Math.floor((end - now) / 1000));
-  }
+    function getRemainingSeconds(timestamp) {
+      const start = new Date(timestamp);
+      const end = new Date(start.getTime() + SESSION_DURATION_MINUTES * 60000);
+      const now = new Date();
+      return Math.max(0, Math.floor((end - now) / 1000));
+    }
 
-  async function fetchCourtData() {
-    try {
-      const res = await fetch(FETCH_URL);
-      const data = await res.json();
+    async function fetchCourtData() {
+      try {
+        const res = await fetch(FETCH_URL);
+        const data = await res.json();
 
-      // Group entries by court
-      const grouped = {};
-      data.forEach(entry => {
-        if (!entry.court) return;
-        if (!grouped[entry.court]) grouped[entry.court] = [];
-        grouped[entry.court].push(entry);
-      });
+        currentCourtState = {};
+        currentWaitlists = {};
 
-      currentCourtState = {};
-      currentWaitlists = {};
-
-      for (const [court, entries] of Object.entries(grouped)) {
-        // Sort descending by timestamp (newest first)
-        entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-        const activeTeam = entries.find(team => {
-          // The first one that is active (started less than SESSION_DURATION_MINUTES ago)
-          const ageMins = (new Date() - new Date(team.timestamp)) / 60000;
-          return ageMins < SESSION_DURATION_MINUTES;
+        // Group active by court
+        data.active.forEach(team => {
+          const remaining = getRemainingSeconds(team.timestamp);
+          currentCourtState[team.court] = { team, remaining };
         });
 
-        let playing = activeTeam || null;
-        // Waitlist is all other teams for that court excluding the active one
-        const waitlist = entries.filter(team => team !== playing);
+        // Group waitlist by court
+        data.waitlist.forEach(team => {
+          if (!currentWaitlists[team.court]) currentWaitlists[team.court] = [];
+          currentWaitlists[team.court].push(team);
+        });
 
-        // Calculate remaining seconds if playing exists
-        let remaining = playing ? getRemainingSeconds(playing.timestamp) : 0;
-
-        currentCourtState[court] = { team: playing, remaining };
-        currentWaitlists[court] = waitlist;
+        renderUI();
+      } catch (err) {
+        console.error('Error fetching:', err);
+        document.getElementById('courtStatus').innerHTML = `<p style="color:red;">Error fetching data</p>`;
       }
-
-      renderUI();
-    } catch (err) {
-      console.error('Error fetching:', err);
-      document.getElementById('courtStatus').innerHTML = `<p style="color:red;">Error fetching data</p>`;
-    }
-  }
-
-  function renderUI() {
-    const courtDiv = document.getElementById('courtStatus');
-    const waitlistDiv = document.getElementById('waitlistSection');
-
-    courtDiv.innerHTML = '';
-    waitlistDiv.innerHTML = '';
-
-    for (const [court, { team, remaining }] of Object.entries(currentCourtState)) {
-      const box = document.createElement('div');
-      box.className = 'court-box ' + (team && remaining > 0 ? 'active' : 'inactive');
-      box.innerHTML = `
-        <h2>${court.replace(/_/g, ' ')}</h2>
-        <p><strong>Now Playing:</strong> ${team ? (team.team_name || "Unnamed Team") : "No active team"}</p>
-        <p><strong>Game Mode:</strong> ${team ? team.game_mode : "-"}</p>
-        <p><strong>Team Size:</strong> ${team ? team.team_size : "-"}</p>
-        <p><strong>Looking for more players?</strong> ${team ? team.needed : "-"}</p>
-        <div class="timer" id="timer-${court}">${formatTime(remaining)}</div>
-      `;
-      courtDiv.appendChild(box);
     }
 
-    // Flatten waitlist and display
-    const allWaitlist = Object.entries(currentWaitlists).flatMap(([court, teams]) =>
-      teams.map(team => ({
-        ...team,
-        court
-      }))
-    );
+    function renderUI() {
+      const courtDiv = document.getElementById('courtStatus');
+      const waitlistDiv = document.getElementById('waitlistSection');
 
-    if (allWaitlist.length > 0) {
-      const box = document.createElement('div');
-      box.className = 'waitlist-box';
-      box.innerHTML = '<h2>Waitlist</h2>';
+      courtDiv.innerHTML = '';
+      waitlistDiv.innerHTML = '';
 
-      allWaitlist.forEach(team => {
-        box.innerHTML += `
-          <p><strong>Team:</strong> ${team.team_name || "Unnamed Team"} — Court: ${team.court.replace(/_/g, ' ')} — Size: ${team.team_size} — Mode: ${team.game_mode}</p>
+      // Render courts and current active teams
+      for (const [court, { team, remaining }] of Object.entries(currentCourtState)) {
+        const box = document.createElement('div');
+        box.className = 'court-box ' + (remaining > 0 ? 'active' : 'inactive');
+        box.innerHTML = `
+          <h2>${court.replace(/_/g, ' ')}</h2>
+          <p><strong>Now Playing:</strong> ${team.team_name || "Unnamed Team"}</p>
+          <p><strong>Game Mode:</strong> ${team.game_mode || "N/A"}</p>
+          <p><strong>Team Size:</strong> ${team.team_size || "N/A"}</p>
+          <p><strong>Looking for more players?</strong> ${team.needed || "N/A"}</p>
+          <div class="timer" id="timer-${court}">${formatTime(remaining)}</div>
         `;
-      });
+        courtDiv.appendChild(box);
+      }
 
-      waitlistDiv.appendChild(box);
-    }
-  }
+      // Render waitlist teams
+      const allWaitlist = Object.entries(currentWaitlists).flatMap(([court, teams]) =>
+        teams.map(team => ({ ...team, court }))
+      );
 
-  function updateTimers() {
-    for (const [court, state] of Object.entries(currentCourtState)) {
-      const timerEl = document.getElementById(`timer-${court}`);
-      if (!timerEl) continue;
+      if (allWaitlist.length > 0) {
+        const box = document.createElement('div');
+        box.className = 'waitlist-box';
+        box.innerHTML = '<h2>Waitlist</h2>';
 
-      if (state.remaining > 0) {
-        state.remaining--;
-        timerEl.textContent = formatTime(state.remaining);
-        timerEl.style.backgroundColor = '#333';
-      } else {
-        timerEl.textContent = '00:00';
-        timerEl.style.backgroundColor = 'red';
+        allWaitlist.forEach(team => {
+          box.innerHTML += `
+            <p><strong>Team:</strong> ${team.team_name || "Unnamed Team"} — Court: ${team.court.replace(/_/g, ' ')} — Size: ${team.team_size || "N/A"} — Mode: ${team.game_mode || "N/A"}</p>
+          `;
+        });
+
+        waitlistDiv.appendChild(box);
       }
     }
-  }
 
-  fetchCourtData();
-  setInterval(fetchCourtData, 15000); // Refresh data every 15s
-  setInterval(updateTimers, 1000);     // Timer tick every 1s
-</script>
+    function updateTimers() {
+      for (const [court, state] of Object.entries(currentCourtState)) {
+        const timerEl = document.getElementById(`timer-${court}`);
+        if (!timerEl) continue;
 
+        if (state.remaining > 0) {
+          state.remaining--;
+          timerEl.textContent = formatTime(state.remaining);
+          timerEl.style.backgroundColor = '#333';
+        } else {
+          timerEl.textContent = '00:00';
+          timerEl.style.backgroundColor = 'red';
+        }
+      }
+    }
+
+    fetchCourtData();
+    setInterval(fetchCourtData, 15000); // Refresh every 15s
+    setInterval(updateTimers, 1000);    // Countdown every second
+  </script>
 </body>
 </html>
