@@ -54,8 +54,7 @@
       border-radius: 5px;
       color: white;
       background-color: #333;
-      min-width: 60px;
-      text-align: center;
+      transition: background-color 0.3s ease;
     }
   </style>
 </head>
@@ -68,15 +67,15 @@
 
 <script>
   const FETCH_URL = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec?mode=read';
-  const SESSION_DURATION_MINUTES = 1; // adjust as needed
+  const SESSION_DURATION_MINUTES = 1;
 
-  let currentCourtState = {};
-  let currentWaitlists = {};
+  let currentCourtState = {}; // Holds active playing team per court
+  let currentWaitlists = {};  // Holds waitlist entries per court
 
   function formatTime(seconds) {
-    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const secs = String(seconds % 60).padStart(2, '0');
-    return `${mins}:${secs}`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
   function getRemainingSeconds(timestamp) {
@@ -89,34 +88,39 @@
   async function fetchCourtData() {
     try {
       const res = await fetch(FETCH_URL);
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
+
+      // Group data by court
+      const grouped = {};
+      data.forEach(entry => {
+        if (!entry.court) return;
+        if (!grouped[entry.court]) grouped[entry.court] = [];
+        grouped[entry.court].push(entry);
+      });
 
       currentCourtState = {};
       currentWaitlists = {};
 
-      // Group by court
-      const courts = {};
-      data.forEach(entry => {
-        if (!entry.court) return;
-        if (!courts[entry.court]) courts[entry.court] = [];
-        courts[entry.court].push(entry);
-      });
+      for (const [court, entries] of Object.entries(grouped)) {
+        // Sort by timestamp descending (newest first)
+        entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      // Process each court
-      for (const [court, teams] of Object.entries(courts)) {
-        teams.sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
-        const playing = teams[0];
-        const waitlist = teams.slice(1);
-        const remaining = getRemainingSeconds(playing.Timestamp);
+        let playing = entries[0];
+        let waitlist = entries.slice(1);
+
+        let remaining = getRemainingSeconds(playing.timestamp);
+
+        // If expired and waitlist exists, the backend should have promoted next team on next fetch
+        // So we just display what backend sends
 
         currentCourtState[court] = { team: playing, remaining };
         currentWaitlists[court] = waitlist;
       }
 
       renderUI();
-    } catch (e) {
-      console.error("Error fetching data:", e);
+
+    } catch (err) {
+      console.error('Error fetching:', err);
       document.getElementById('courtStatus').innerHTML = `<p style="color:red;">Error fetching data</p>`;
     }
   }
@@ -183,8 +187,8 @@
   }
 
   fetchCourtData();
-  setInterval(fetchCourtData, 15000); // Refresh data every 15 seconds
-  setInterval(updateTimers, 1000);     // Update timers every second
+  setInterval(fetchCourtData, 5000); // Refresh data every 5s
+  setInterval(updateTimers, 1000);     // Update timer every 1s
 </script>
 
 </body>
