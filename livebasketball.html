@@ -120,10 +120,13 @@
         const timerEl = card.querySelector(".timer");
 
         if (remaining <= 0) {
-          card.remove();
-          fetch(`${apiUrl}?mode=remove&ticket=${ticket}`);
-          timerState.delete(ticket);
-        } else if (timerEl) {
+  fetch(`${apiUrl}?mode=remove&ticket=${ticket}`)
+    .then(() => {
+      card.remove();
+      timerState.delete(ticket);
+    });
+}
+        else if (timerEl) {
           timerEl.textContent = formatTime(remaining);
         }
       });
