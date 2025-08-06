@@ -177,7 +177,12 @@
     // Initial load and intervals
     refreshData();
     setInterval(updateTimers, 250);
-    setInterval(refreshData, 3000);
+    setInterval(() => {
+  // Force refresh and promote
+  fetch(`${apiUrl}?mode=read`); // Triggers Apps Script's "read" and in turn the promote logic
+  refreshData();
+}, 3000);
+
   </script>
 </body>
 </html>
