@@ -107,7 +107,7 @@
 
     async function fetchCourtData() {
       const res = await fetch(
-        "https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_URL/exec?mode=read"
+        "https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec?mode=read"
       );
       const data = await res.json();
 
@@ -193,7 +193,7 @@
     }
 
     fetchCourtData();
-    setInterval(fetchCourtData, 10000); // Refresh every 10 seconds
+    setInterval(fetchCourtData, 5000); // Refresh every 10 seconds
   </script>
 </body>
 </html>
