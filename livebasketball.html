@@ -79,7 +79,7 @@
     const activeContainer = document.getElementById("activeCourts");
     const waitlistContainer = document.getElementById("waitlistCourts");
 
-    const apiUrl = "https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec"; // Replace this with your Google Apps Script Web App URL
+    const apiUrl = "https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec";
     const timerDuration = 60; // seconds
     const timerState = new Map(); // ticketNumber -> {startTime: timestamp}
 
@@ -108,8 +108,8 @@
     }
 
     function updateTimers() {
-      const cards = document.querySelectorAll(".court-card");
       const now = performance.now();
+      const cards = document.querySelectorAll(".court-card");
 
       cards.forEach(card => {
         const ticket = card.dataset.ticket;
@@ -146,7 +146,7 @@
           const ticket = entry.ticketNumber.toString();
           newTickets.add(ticket);
 
-          // Only start timer when it appears newly
+          // Start or refresh timer if not already tracking
           if (!timerState.has(ticket)) {
             timerState.set(ticket, { startTime: performance.now() });
           }
@@ -155,7 +155,7 @@
           activeContainer.appendChild(card);
         });
 
-        // Remove expired tickets from timerState
+        // Clean up timers for entries that no longer exist
         for (const ticket of timerState.keys()) {
           if (!newTickets.has(ticket)) {
             timerState.delete(ticket);
@@ -174,15 +174,13 @@
       }
     }
 
-    // Initial load and intervals
+    // Initial load and timed updates
     refreshData();
     setInterval(updateTimers, 250);
     setInterval(() => {
-  // Force refresh and promote
-  fetch(`${apiUrl}?mode=read`); // Triggers Apps Script's "read" and in turn the promote logic
-  refreshData();
-}, 3000);
-
+      fetch(`${apiUrl}?mode=read`);
+      refreshData();
+    }, 3000);
   </script>
 </body>
 </html>
