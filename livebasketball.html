@@ -3,197 +3,160 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Court Status</title>
+  <title>Court Management</title>
   <style>
     body {
-      background: #111;
-      font-family: 'Segoe UI', sans-serif;
-      color: #f0f0f0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
       margin: 0;
       padding: 20px;
+    }
+
+    h1, h2 {
       text-align: center;
     }
 
-    h1 {
-      font-size: 2rem;
-      color: #fff;
-      margin-bottom: 20px;
+    .section {
+      margin-bottom: 40px;
     }
 
     .court-container {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin-bottom: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
     }
 
     .court-card {
-      background: #1e1e1e;
-      border-radius: 16px;
+      background-color: #fff3e6;
+      border: 2px solid #e69500;
+      border-radius: 10px;
+      width: 220px;
       padding: 16px;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
-      text-align: left;
-      transition: background 0.3s;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
     }
 
-    .court-card.active {
-      border: 2px solid #34c759;
-    }
-
-    .court-card.waitlist {
-      border: 2px dashed #ffc107;
-    }
-
-    .court-card.full {
-      border: 2px solid #ff3b30;
+    .court-card:hover {
+      transform: scale(1.03);
     }
 
     .court-card h3 {
-      margin-top: 0;
+      margin: 0 0 10px;
+      color: #d36b00;
     }
 
     .timer {
-      font-size: 1.2rem;
+      font-size: 18px;
       font-weight: bold;
+      color: #333;
       margin-top: 10px;
     }
 
-    .join-btn {
-      margin-top: 12px;
-      background: #ffa500;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    .join-btn:hover {
-      background: #cc8400;
-    }
-
-    .waitlist-title {
-      margin-top: 40px;
-      font-size: 1.5rem;
-      color: #ffc107;
-    }
-
-    .waitlist-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .waitlist-entry {
-      background: #222;
-      padding: 10px;
-      border-left: 5px solid #ffc107;
-      text-align: left;
-      border-radius: 8px;
+    .label {
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>Live Court Display</h1>
-  <div class="court-container" id="courtContainer"></div>
 
-  <div class="waitlist-title">Waitlist</div>
-  <div class="waitlist-list" id="waitlistContainer"></div>
+  <div class="section">
+    <h1>Active Courts</h1>
+    <div id="activeCourts" class="court-container"></div>
+  </div>
+
+  <div class="section">
+    <h2>Waitlist</h2>
+    <div id="waitlistCourts" class="court-container"></div>
+  </div>
 
   <script>
-    const courtContainer = document.getElementById("courtContainer");
-    const waitlistContainer = document.getElementById("waitlistContainer");
+    const SCRIPT_BASE = 'https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec';
 
-    async function fetchCourtData() {
-      const res = await fetch(
-        "https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec?mode=read"
-      );
-      const data = await res.json();
+    const ACTIVE_URL = SCRIPT_BASE + '?mode=read';
+    const WAITLIST_URL = SCRIPT_BASE + '?mode=waitlist';
+    const REMOVE_URL = SCRIPT_BASE + '?mode=remove'; // This must be handled in Apps Script
 
-      const now = new Date();
-      const active = data.filter((entry) => {
-        const t = new Date(entry.timestamp);
-        return (now - t) / 60000 < 1.0; // Less than 1 minute = active
-      });
-
-      const waitlist = data.filter((entry) => {
-        const t = new Date(entry.timestamp);
-        return (now - t) / 60000 >= 1.0;
-      });
-
-      courtContainer.innerHTML = "";
-      waitlistContainer.innerHTML = "";
-
-      // Render active courts
-      active.forEach((entry) => {
-        const card = document.createElement("div");
-        card.className = `court-card active ${entry.courtType.toLowerCase()}`;
-
-        card.innerHTML = `
-          <h3>Ticket #${entry.ticketNumber}</h3>
-          <p><strong>Type:</strong> ${entry.courtType}</p>
-          <p><strong>Skill:</strong> ${entry.skillLevel}</p>
-          <p><strong>Players Needed:</strong> ${entry.playersNeeded}</p>
-          <div class="timer" id="timer-${entry.ticketNumber}">00:59</div>
-        `;
-
-        // Join button if players are needed
-        if (parseInt(entry.playersNeeded) > 0) {
-          const joinBtn = document.createElement("button");
-          joinBtn.className = "join-btn";
-          joinBtn.textContent = "Join Team";
-          joinBtn.onclick = () => {
-            const num = prompt("How many players are joining?");
-            if (num !== null) {
-              // Send updated data
-              fetch("https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_URL/exec", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({
-                  mode: "join",
-                  ticketNumber: entry.ticketNumber,
-                  playersJoining: num,
-                }),
-              }).then(() => location.reload());
-            }
-          };
-          card.appendChild(joinBtn);
-        }
-
-        courtContainer.appendChild(card);
-        startTimer(`timer-${entry.ticketNumber}`, 59);
-      });
-
-      // Render waitlist entries
-      waitlist.forEach((entry) => {
-        const item = document.createElement("div");
-        item.className = "waitlist-entry";
-        item.innerHTML = `
-          <strong>Ticket #${entry.ticketNumber}</strong> - ${entry.courtType}, ${entry.skillLevel}, Needs ${entry.playersNeeded} players
-        `;
-        waitlistContainer.appendChild(item);
-      });
+    function fetchData() {
+      fetchActiveCourts();
+      fetchWaitlistCourts();
     }
 
-    function startTimer(id, seconds) {
-      const el = document.getElementById(id);
-      let timeLeft = seconds;
-      const interval = setInterval(() => {
-        const mins = String(Math.floor(timeLeft / 60)).padStart(2, "0");
-        const secs = String(timeLeft % 60).padStart(2, "0");
-        el.textContent = `${mins}:${secs}`;
-        timeLeft--;
+    function fetchActiveCourts() {
+      fetch(ACTIVE_URL)
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById("activeCourts");
+          container.innerHTML = "";
+          data.forEach(entry => createCourtCard(entry, container, true));
+        });
+    }
 
-        if (timeLeft < 0) {
+    function fetchWaitlistCourts() {
+      fetch(WAITLIST_URL)
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById("waitlistCourts");
+          container.innerHTML = "";
+          data.forEach(entry => createCourtCard(entry, container, false));
+        });
+    }
+
+    function createCourtCard(entry, parent, isActive) {
+      const card = document.createElement("div");
+      card.className = "court-card";
+
+      const startTime = new Date(entry.timestamp);
+
+      card.innerHTML = `
+        <h3>${entry.courtType} Court</h3>
+        <p><span class="label">Skill:</span> ${entry.skillLevel}</p>
+        <p><span class="label">Players Needed:</span> ${entry.playersNeeded}</p>
+        ${isActive ? `<div class="timer" id="timer-${entry.ticketNumber}">01:00</div>` : ''}
+      `;
+
+      parent.appendChild(card);
+
+      if (isActive) {
+        startTimer(entry.ticketNumber, startTime);
+      }
+    }
+
+    function startTimer(ticketNumber, startTime) {
+      const duration = 60; // seconds
+      const interval = setInterval(() => {
+        const now = new Date();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        const remaining = Math.max(0, duration - elapsed);
+        const mins = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const secs = String(remaining % 60).padStart(2, '0');
+
+        const timerEl = document.getElementById(`timer-${ticketNumber}`);
+        if (timerEl) {
+          timerEl.innerText = `${mins}:${secs}`;
+        }
+
+        if (remaining <= 0) {
           clearInterval(interval);
-          location.reload();
+          removeCourt(ticketNumber);
         }
       }, 1000);
     }
 
-    fetchCourtData();
-    setInterval(fetchCourtData, 5000); // Refresh every 10 seconds
+    function removeCourt(ticketNumber) {
+      fetch(`${SCRIPT_BASE}?mode=remove&ticket=${ticketNumber}`)
+        .then(() => {
+          // After removal, the Apps Script should auto-promote from waitlist if space allows
+          fetchData();
+        });
+    }
+
+    // Initial load
+    fetchData();
+
+    // Optional: Refresh every 5 seconds
+    setInterval(fetchData, 5000);
   </script>
+
 </body>
 </html>
