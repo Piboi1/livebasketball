@@ -12,15 +12,9 @@
       padding: 20px;
     }
 
-    h1 {
+    h1, h2 {
       text-align: center;
-      margin-bottom: 30px;
       color: #333;
-    }
-
-    h2 {
-      margin-top: 40px;
-      color: #444;
     }
 
     .court-section {
@@ -35,20 +29,11 @@
       padding: 15px 20px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       width: 250px;
-      transition: all 0.3s ease;
+      background-color: white;
     }
 
-    .court-card.full {
-      background-color: #ffeaea;
-    }
-
-    .court-card.half {
-      background-color: #e8f7ff;
-    }
-
-    .court-card h3 {
-      margin-top: 0;
-    }
+    .court-card.full { background-color: #ffeaea; }
+    .court-card.half { background-color: #e8f7ff; }
 
     .timer {
       font-size: 1.3em;
@@ -57,18 +42,11 @@
       margin-top: 10px;
     }
 
-    p {
-      margin: 4px 0;
-    }
-
-    .gray {
-      color: gray;
-    }
+    .gray { color: gray; }
   </style>
 </head>
 <body>
   <h1>Court Status</h1>
-
   <h2>Active Courts</h2>
   <div id="activeCourts" class="court-section"></div>
 
@@ -76,22 +54,21 @@
   <div id="waitlistCourts" class="court-section"></div>
 
   <script>
+    const apiUrl = "https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec";
     const activeContainer = document.getElementById("activeCourts");
     const waitlistContainer = document.getElementById("waitlistCourts");
+    const timerDuration = 60 * 1000;
 
-    const apiUrl = "https://script.google.com/macros/s/AKfycbxr-1qIuIAetE0cPN-JL2C1gGVWDFau83QZ1rMz6sHf5hE2IHa-kWCTu26XlfoPw-Gs/exec";
-    const timerDuration = 60; // seconds
-    const timerState = new Map(); // ticketNumber -> {startTime: timestamp}
-
-    function formatTime(seconds) {
-      const s = Math.max(0, Math.floor(seconds));
-      return `0:${s.toString().padStart(2, '0')}`;
+    function formatTime(ms) {
+      const seconds = Math.max(0, Math.floor(ms / 1000));
+      return `0:${seconds.toString().padStart(2, '0')}`;
     }
 
     function renderCard(entry, isWaitlist = false) {
       const card = document.createElement("div");
       card.className = `court-card ${entry.courtType.toLowerCase()}`;
       card.dataset.ticket = entry.ticketNumber;
+      card.dataset.timestamp = entry.timestamp;
 
       const courtTitle = `${entry.courtType} Court (${entry.skillLevel})`;
       const ticketLine = `Ticket #${entry.ticketNumber}`;
@@ -101,33 +78,30 @@
         <h3>${courtTitle}</h3>
         <p>${ticketLine}</p>
         <p>${playerLine}</p>
-        ${!isWaitlist ? `<p class="timer">0:60</p>` : `<p class="gray">Waiting...</p>`}
+        ${isWaitlist ? `<p class="gray">Waiting...</p>` : `<p class="timer">0:60</p>`}
       `;
 
       return card;
     }
 
     function updateTimers() {
-      const now = performance.now();
+      const now = Date.now();
       const cards = document.querySelectorAll(".court-card");
 
       cards.forEach(card => {
-        const ticket = card.dataset.ticket;
-        if (!timerState.has(ticket)) return;
+        if (card.querySelector(".timer")) {
+          const start = Number(card.dataset.timestamp);
+          const remaining = timerDuration - (now - start);
+          const timer = card.querySelector(".timer");
 
-        const elapsedSec = (now - timerState.get(ticket).startTime) / 1000;
-        const remaining = timerDuration - elapsedSec;
-        const timerEl = card.querySelector(".timer");
-
-        if (remaining <= 0) {
-  fetch(`${apiUrl}?mode=remove&ticket=${ticket}`)
-    .then(() => {
-      card.remove();
-      timerState.delete(ticket);
-    });
-}
-        else if (timerEl) {
-          timerEl.textContent = formatTime(remaining);
+          if (remaining <= 0) {
+            const ticket = card.dataset.ticket;
+            fetch(`${apiUrl}?mode=remove&ticket=${ticket}`).then(() => {
+              card.remove();
+            });
+          } else {
+            timer.textContent = formatTime(remaining);
+          }
         }
       });
     }
@@ -142,48 +116,27 @@
         const activeData = await activeRes.json();
         const waitlistData = await waitlistRes.json();
 
-        const newTickets = new Set();
         activeContainer.innerHTML = "";
+        waitlistContainer.innerHTML = "";
 
         activeData.forEach(entry => {
-          const ticket = entry.ticketNumber.toString();
-          newTickets.add(ticket);
-
-          // Start or refresh timer if not already tracking
-          if (!timerState.has(ticket)) {
-            timerState.set(ticket, { startTime: performance.now() });
-          }
-
           const card = renderCard(entry, false);
           activeContainer.appendChild(card);
         });
 
-        // Clean up timers for entries that no longer exist
-        for (const ticket of timerState.keys()) {
-          if (!newTickets.has(ticket)) {
-            timerState.delete(ticket);
-          }
-        }
-
-        // Render waitlist
-        waitlistContainer.innerHTML = "";
         waitlistData.forEach(entry => {
           const card = renderCard(entry, true);
           waitlistContainer.appendChild(card);
         });
 
       } catch (err) {
-        console.error("Failed to refresh data:", err);
+        console.error("Error refreshing data", err);
       }
     }
 
-    // Initial load and timed updates
     refreshData();
-    setInterval(updateTimers, 250);
-    setInterval(() => {
-      fetch(`${apiUrl}?mode=read`);
-      refreshData();
-    }, 3000);
+    setInterval(updateTimers, 500);
+    setInterval(refreshData, 3000);
   </script>
 </body>
 </html>
