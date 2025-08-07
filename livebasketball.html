@@ -107,11 +107,22 @@
         joinBtn.textContent = "Join";
         joinBtn.className = "join-btn";
 
-        joinBtn.addEventListener("click", () => {
-          playersNeeded--;
-          playerText.textContent = `Players Needed: ${playersNeeded}`;
-          if (playersNeeded <= 0) {
-            joinBtn.remove();
+        joinBtn.addEventListener("click", async () => {
+          try {
+            const res = await fetch(`${apiUrl}?mode=join&ticket=${entry.ticketNumber}`);
+            const text = await res.text();
+
+            if (text === "Joined") {
+              playersNeeded--;
+              playerText.textContent = `Players Needed: ${playersNeeded}`;
+              if (playersNeeded <= 0) {
+                joinBtn.remove();
+              }
+            } else {
+              alert(text);
+            }
+          } catch (err) {
+            console.error("Join error:", err);
           }
         });
 
