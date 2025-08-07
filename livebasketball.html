@@ -30,6 +30,7 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       width: 250px;
       background-color: white;
+      position: relative;
     }
 
     .court-card.full { background-color: #ffeaea; }
@@ -43,6 +44,21 @@
     }
 
     .gray { color: gray; }
+
+    .join-btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      margin-top: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+
+    .join-btn:hover {
+      background-color: #45a049;
+    }
   </style>
 </head>
 <body>
@@ -72,14 +88,47 @@
 
       const courtTitle = `${entry.courtType} Court (${entry.skillLevel})`;
       const ticketLine = `Ticket #${entry.ticketNumber}`;
-      const playerLine = `Players Needed: ${entry.playersNeeded}`;
+
+      let playersNeeded = parseInt(entry.playersNeeded);
+
+      const playerText = document.createElement("p");
+      playerText.className = "players-needed";
+      playerText.textContent = `Players Needed: ${playersNeeded}`;
 
       card.innerHTML = `
         <h3>${courtTitle}</h3>
         <p>${ticketLine}</p>
-        <p>${playerLine}</p>
-        ${isWaitlist ? `<p class="gray">Waiting...</p>` : `<p class="timer">0:60</p>`}
       `;
+
+      card.appendChild(playerText);
+
+      if (playersNeeded > 0) {
+        const joinBtn = document.createElement("button");
+        joinBtn.textContent = "Join";
+        joinBtn.className = "join-btn";
+
+        joinBtn.addEventListener("click", () => {
+          playersNeeded--;
+          playerText.textContent = `Players Needed: ${playersNeeded}`;
+          if (playersNeeded <= 0) {
+            joinBtn.remove();
+          }
+        });
+
+        card.appendChild(joinBtn);
+      }
+
+      if (isWaitlist) {
+        const waitMsg = document.createElement("p");
+        waitMsg.className = "gray";
+        waitMsg.textContent = "Waiting...";
+        card.appendChild(waitMsg);
+      } else {
+        const timer = document.createElement("p");
+        timer.className = "timer";
+        timer.textContent = "0:60";
+        card.appendChild(timer);
+      }
 
       return card;
     }
@@ -89,18 +138,17 @@
       const cards = document.querySelectorAll(".court-card");
 
       cards.forEach(card => {
-        if (card.querySelector(".timer")) {
+        const timerEl = card.querySelector(".timer");
+        if (timerEl) {
           const start = Number(card.dataset.timestamp);
           const remaining = timerDuration - (now - start);
-          const timer = card.querySelector(".timer");
-
           if (remaining <= 0) {
             const ticket = card.dataset.ticket;
             fetch(`${apiUrl}?mode=remove&ticket=${ticket}`).then(() => {
               card.remove();
             });
           } else {
-            timer.textContent = formatTime(remaining);
+            timerEl.textContent = formatTime(remaining);
           }
         }
       });
