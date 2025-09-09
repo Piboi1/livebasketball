@@ -88,6 +88,7 @@
 
       const courtTitle = `${entry.courtType} Court (${entry.skillLevel})`;
       const ticketLine = `Ticket #${entry.ticketNumber}`;
+      const courtNumLine = `Court #: ${entry.courtNum}`; // <-- new line for Court #
 
       let playersNeeded = parseInt(entry.playersNeeded);
 
@@ -98,6 +99,7 @@
       card.innerHTML = `
         <h3>${courtTitle}</h3>
         <p>${ticketLine}</p>
+        <p>${courtNumLine}</p>  <!-- display Court # -->
       `;
 
       card.appendChild(playerText);
